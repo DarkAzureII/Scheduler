@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/shims-vue.d.ts","./src/vite-env.d.ts","./src/router/index.ts","./src/App.vue","./src/components/CalendarGrid.vue","./src/views/CalendarView.vue"],"errors":true,"version":"5.7.3"}

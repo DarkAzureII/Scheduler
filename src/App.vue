@@ -28,12 +28,19 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize);
-  window.removeEventListener('mousemove', onMouseMove);
-  cancelAnimationFrame(frameId);
-  renderer?.dispose();
-});
-
+  // Add resource cleanup
+  scene.traverse(child => {
+    if (child.isMesh) {
+      child.geometry.dispose()
+      child.material.dispose()
+    }
+  })
+  renderer.dispose()
+  renderer.forceContextLoss()
+  renderer = null
+  scene = null
+  camera = null
+})
 function createStarField() {
   const geometry = new THREE.BufferGeometry();
   const material = new THREE.ShaderMaterial({
@@ -43,6 +50,7 @@ function createStarField() {
       uTime: { value: 0 }
     },
     vertexShader: `
+      precision highp float;
       attribute float size;
       attribute float brightness;
       attribute float temperature;
@@ -66,6 +74,7 @@ function createStarField() {
       }
     `,
     fragmentShader: `
+      precision highp float;
       #define PI 3.14159265359
       varying float vBrightness;
       varying float vTemperature;
@@ -106,52 +115,70 @@ function createStarField() {
           return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
       }
 
-      float coneEffect(vec2 uv, vec2 direction, float sharpness) {
+      float coneEffect(vec2 uv, vec2 direction, float sharpness, float maxDistance) {
+          // Calculate angle between UV position and direction
           float angle = dot(normalize(uv), normalize(direction));
-          float cone = smoothstep(0.3, 1.0, pow(angle, sharpness));
-          float distanceFade = 1.0 - smoothstep(0.0, 0.7, length(uv));
+          float cone = smoothstep(0.85, 0.95, pow(abs(angle), sharpness));
+          float distanceFade = 1.0 - smoothstep(0.0, maxDistance, length(uv));
           return cone * distanceFade;
       }
 
       void main() {
           vec2 uv = 2.0 * gl_PointCoord - 1.0;
           
-          // Generate a unique cone direction per star
-          vec2 coneDir = -vec2(
-              sin(vPosition.x * 100.0 + uTime),
-              cos(vPosition.y * 100.0 + uTime)
-          );
+          // Base directions relative to star center
+          float rotationAngle = uTime * 0.5; // Unified rotation for all stars
+          mat2 rotation = mat2(cos(rotationAngle), -sin(rotationAngle),
+                              sin(rotationAngle), cos(rotationAngle));
           
-          // Calculate a perpendicular direction for additional cones
-          vec2 coneDir2 = vec2(-coneDir.y, coneDir.x);
+          // Cardinal directions (rotating)
+          vec2 dirRight = rotation * vec2(1, 0);
+          vec2 dirUp = rotation * vec2(0, 1);
+          vec2 dirLeft = rotation * vec2(-1, 0);
+          vec2 dirDown = rotation * vec2(0, -1);
           
+          // Diagonal directions (45° between cardinals)
+          vec2 dirUR = normalize(vec2(1, 1)) * rotation;
+          vec2 dirUL = normalize(vec2(-1, 1)) * rotation;
+          vec2 dirDR = normalize(vec2(1, -1)) * rotation;
+          vec2 dirDL = normalize(vec2(-1, -1)) * rotation;
+
           // Create main star shape
           float spikeCount = mix(6.0, 10.0, smoothstep(10.0, 30.0, vSize));
           float starShape = sharpStar(uv, spikeCount);
           
-          // Create light cones along 4 directions
-          float coneIntensity = 0.5 + 0.5 * sin(uTime * 2.0 + vPosition.x * 10.0);
-          float cone1 = coneEffect(uv, coneDir, 64.0) * coneIntensity;
-          float cone2 = coneEffect(uv, -coneDir, 64.0) * coneIntensity;
-          float cone3 = coneEffect(uv, coneDir2, 64.0) * coneIntensity;
-          float cone4 = coneEffect(uv, -coneDir2, 64.0) * coneIntensity;
+          // Main cones (cardinal directions, full length)
+          float coneIntensity = 0.7 + 0.3 * sin(uTime * 2.0);
+          float cone1 = coneEffect(uv, dirRight, 128.0, 1.0) * coneIntensity;
+          float cone2 = coneEffect(uv, dirUp, 128.0, 1.0) * coneIntensity;
+          float cone3 = coneEffect(uv, dirLeft, 128.0, 1.0) * coneIntensity;
+          float cone4 = coneEffect(uv, dirDown, 128.0, 1.0) * coneIntensity;
+          
+          // Secondary cones (diagonal directions, half length)
+          float cone5 = coneEffect(uv, dirUR, 256.0, 0.5) * coneIntensity * 0.6;
+          float cone6 = coneEffect(uv, dirUL, 256.0, 0.5) * coneIntensity * 0.6;
+          float cone7 = coneEffect(uv, dirDR, 256.0, 0.5) * coneIntensity * 0.6;
+          float cone8 = coneEffect(uv, dirDL, 256.0, 0.5) * coneIntensity * 0.6;
           
           // Combine effects
           vec3 color = starColor(vTemperature) * vBrightness;
-          color += color * (cone1 + cone2 + cone3 + cone4) * 1.5;
+          color += color * (cone1 + cone2 + cone3 + cone4) * 1.0;
+          color += color * (cone5 + cone6 + cone7 + cone8) * 0.8;
           
           // Mouse interaction
           float mouseDist = length(vPosition - uMousePosition);
           float hover = smoothstep(uHoverRadius, 0.0, mouseDist);
-          color = mix(color, color * 1.8, hover);
+          color = mix(color, color * 1.5, hover);
           
           // Alpha calculation
-          float alpha = starShape + (cone1 + cone2 + cone3 + cone4) * 0.3;
+          float alpha = starShape + 
+              (cone1 + cone2 + cone3 + cone4) * 0.15 +
+              (cone5 + cone6 + cone7 + cone8) * 0.1;
           alpha = clamp(alpha, 0.0, 1.0);
           
           // Edge sharpening for large stars
           if(vSize > 15.0) {
-              alpha *= step(0.3, 1.0 - length(uv));
+              alpha *= step(0.7, 1.0 - length(uv));
           }
           
           gl_FragColor = vec4(color, alpha);
@@ -203,7 +230,7 @@ function createStarField() {
   });
 
   // Add some background stars
-  for(let i = 0; i < 1000; i++) {
+  for(let i = 0; i < 1500; i++) {
     positions.push(
       (Math.random() - 0.5) * 2,
       (Math.random() - 0.5) * 2,
@@ -245,7 +272,6 @@ function initThreeJs() {
   const starField = createStarField();
   scene.add(starField);
 
-  raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 }
 
