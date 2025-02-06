@@ -1,6 +1,6 @@
 <template>
     <div class="p-8">
-      <h2 class="text-3xl font-bold mb-6">{{ currentMonth }}</h2>
+      <h2 className="text-3xl mb-6 font-thin">{{ currentMonth }}</h2>
       <div class="grid grid-cols-7 gap-2">
         <div 
           v-for="day in daysInMonth" 
