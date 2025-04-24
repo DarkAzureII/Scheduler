@@ -1,0 +1,61 @@
+/* RPG Global Theme Styles */
+@layer base {
+    html {
+      @apply bg-void text-stardust font-rpg-body;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+  
+    /* Cosmic Headings */
+    h1, h2, h3, h4, h5, h6 {
+      @apply font-rpg-heading tracking-wider;
+      text-shadow: 0 0 15px rgba(122, 248, 255, 0.4);
+    }
+  
+    /* Interactive Elements */
+    button, a {
+      @apply transition-all duration-300 hover:text-plasma;
+    }
+  
+    /* Mystical Inputs */
+    input, textarea, select {
+      @apply bg-dark-matter/50 border border-event-horizon rounded-lg px-4 py-2;
+      @apply focus:ring-2 focus:ring-stardust focus:border-stardust focus:outline-none;
+    }
+  
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      @apply w-2;
+    }
+    ::-webkit-scrollbar-track {
+      @apply bg-void;
+    }
+    ::-webkit-scrollbar-thumb {
+      @apply bg-singularity rounded-full hover:bg-event-horizon;
+    }
+  }
+  
+  @layer components {
+    /* RPG Buttons */
+    .rpg-btn {
+        @apply px-6 py-3 rounded-lg font-rpg-heading text-lg;
+        @apply bg-gradient-to-br from-singularity to-event-horizon;
+        @apply border border-event-horizon hover:shadow-hologram-md;
+        @apply transition-all duration-300 hover:translate-y-[-2px];
+      }
+  
+    /* Skill Nodes */
+    .skill-node {
+        @apply p-4 rounded-xl border border-stardust/20;
+        @apply bg-gradient-to-br from-dark-matter/50 to-void;
+        @apply hover:shadow-hologram hover:border-stardust/40;
+      }
+  
+    /* Progress Bars */
+    .rpg-progress {
+      @apply h-4 rounded-full bg-singularity overflow-hidden;
+      &::-webkit-progress-value {
+        @apply bg-gradient-to-r from-stardust to-quantum;
+      }
+    }
+  }

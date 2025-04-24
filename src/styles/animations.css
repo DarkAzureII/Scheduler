@@ -1,0 +1,10 @@
+/* styles/animations.css */
+@keyframes pulse-glow {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+  }
+  
+  .rpg-hover-glow {
+    @apply transition-all duration-300 hover:drop-shadow-[0_0_8px_rgba(122,248,255,0.4)];
+  }

@@ -1,0 +1,7 @@
+/* styles/fonts.css */
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@500&display=swap');
+
+:root {
+  --font-rpg-body: 'Space Mono', monospace;
+  --font-rpg-heading: 'Orbitron', sans-serif;
+}

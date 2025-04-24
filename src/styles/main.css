@@ -1,0 +1,36 @@
+/* src/styles/main.css */
+/* Cosmic Font Faces MUST COME FIRST */
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@500;700&family=Press+Start+2P&display=swap');
+
+/* Then RPG Theme */
+@import './rpg-theme.css';
+
+/* Tailwind directives AFTER imports */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mystical Animations */
+@keyframes terminal-glitch {
+  0% { transform: translate(0); filter: hue-rotate(0deg); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  60% { transform: translate(-1px, 1px); filter: hue-rotate(10deg); }
+  80% { transform: translate(1px, -1px); }
+  100% { transform: translate(0); filter: hue-rotate(0deg); }
+}
+
+/* Holographic Effects */
+.holographic-card {
+  @apply relative overflow-hidden;
+  &::before {
+    @apply content-[''] absolute inset-0 opacity-30;
+    background: linear-gradient(
+      45deg,
+      transparent 48%,
+      theme('colors.stardust') 50%,
+      transparent 52%
+    );
+    animation: hologram-scan 4s linear infinite;
+  }
+}
