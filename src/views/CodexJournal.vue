@@ -2,7 +2,7 @@
     <div class="flex flex-col h-full crt-effect">
       <!-- Header -->
       <header class="bg-singularity/70 text-stardust p-4 flex items-center justify-between border-b border-event-horizon">
-        <h1 class="text-2xl font-rpg-heading animate-pulse-glow">📜 Codex Grimoire</h1>
+        <h1 class="text-2xl font-rpg-heading animate-pulse-glow">📜 Codex Journal</h1>
         <button 
           @click="showQuickAdd = true" 
           class="rpg-btn"
@@ -14,26 +14,26 @@
       <!-- Quick Add Modal -->
       <div v-if="showQuickAdd" class="fixed inset-0 bg-void/90 flex items-center justify-center z-50 backdrop-blur-sm">
         <div class="bg-dark-matter p-6 rounded-xl w-11/12 max-w-md border border-event-horizon hologram-lg">
-          <h2 class="font-rpg-heading text-plasma mb-4">🔍 Archive Knowledge</h2>
+          <h2 class="font-rpg-heading text-plasma mb-4">🔍 Add New Memory Crystal</h2>
           <input 
             v-model="newEntry.title"
-            placeholder="Chronicle Title..." 
+            placeholder="Title" 
             class="rpg-input mb-3"
           />
           <textarea
             v-model="newEntry.summary"
-            placeholder="Inscribe your findings..." 
+            placeholder="Summary" 
             class="rpg-textarea mb-3"
             rows="4"
           ></textarea>
           <input
             v-model="newEntry.source"
-            placeholder="Origin Source (arcane link)..."
+            placeholder="Source (link or note)"
             class="rpg-input mb-3"
           />
           <input
             v-model="newEntry.tagsInput"
-            placeholder="Knowledge Domains (comma-separated)"
+            placeholder="Tags (comma-separated)"
             class="rpg-input mb-3"
           />
           <div class="flex justify-end space-x-2">
@@ -144,11 +144,12 @@
           .filter(t => t);
         
         if (newEntry.value.title) {
-          codex.addEntry({
-            ...newEntry.value,
-            tags,
-            date: new Date().toISOString()
-          });
+            codex.addEntry({
+            title: newEntry.value.title,
+            summary: newEntry.value.summary,
+            source: newEntry.value.source,
+            tags
+            });
           cancelAdd();
         }
       }
