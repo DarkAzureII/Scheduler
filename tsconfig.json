@@ -6,6 +6,7 @@
     "strict": true,
     "jsx": "preserve",
     "types": [
+      "chart.js",
       "vite/client",
       "@vue/runtime-core"
     ],
@@ -19,7 +20,8 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "src/shims-vue.d.ts"
+    "src/shims-vue.d.ts",
+    "src/types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",
