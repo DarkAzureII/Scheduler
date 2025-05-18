@@ -10,17 +10,26 @@
   const canvas = ref(null);
   let renderer, scene, camera, raycaster, mouse;
   let frameId;
+  let cloudMeshes = []; 
+  let galaxyStars;
+  let showGalaxy = false; // or true if you want it on by default
   
   onMounted(() => {
     initThreeJs();
     handleResize();
     window.addEventListener('resize', handleResize);
-    window.addEventListener('mousemove', onMouseMove);
     animate();
   });
   
   onBeforeUnmount(() => {
     // Add resource cleanup
+
+    cloudMeshes.forEach(cloud => {
+      cloud.material.dispose();
+      cloud.geometry?.dispose();
+    });
+    cloudMeshes = [];
+    
     scene.traverse(child => {
       if (child.isMesh) {
         child.geometry.dispose()
@@ -33,9 +42,34 @@
     scene = null
     camera = null
   })
+
   function createStarField() {
     const geometry = new THREE.BufferGeometry();
+
+    const nebulaData = createNebulae();
+    const { positions, sizes, brightness, temperatures } = nebulaData;
+    cloudMeshes = nebulaData.cloudMeshes;
+    
+
+    // Add background stars
+    for (let i = 0; i < 1500; i++) {
+      positions.push(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        -0.2
+      );
+      sizes.push(1 + Math.random() * 3);
+      brightness.push(0.2 + Math.random() * 0.3);
+      temperatures.push(Math.pow(Math.random(), 2));
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    geometry.setAttribute('brightness', new THREE.Float32BufferAttribute(brightness, 1));
+    geometry.setAttribute('temperature', new THREE.Float32BufferAttribute(temperatures, 1));
+
     const material = new THREE.ShaderMaterial({
+      // ... your shader uniforms and logic ...
       uniforms: {
         uMousePosition: { value: new THREE.Vector2(0, 0) },
         uHoverRadius: { value: 0.2 },
@@ -43,6 +77,7 @@
       },
       vertexShader: `
         precision highp float;
+        uniform float uTime;
         attribute float size;
         attribute float brightness;
         attribute float temperature;
@@ -60,8 +95,14 @@
           // Add size variation with turbulence
           float sizeVariation = 1.0 + sin(position.x * 100.0) * 0.2;
           gl_PointSize = size * sizeVariation * (1.0 + brightness * 0.5);
+
+          vec3 displacedPosition = position + vec3(
+              sin(position.y * 10.0 + uTime) * 0.002,
+              cos(position.x * 8.0 + uTime) * 0.0015,
+              0.0
+          );
           
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(displacedPosition, 1.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -176,81 +217,37 @@
             gl_FragColor = vec4(color, alpha);
         }
       `,
-  
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-  
-    // Create 10 star clusters
-    const clusters = Array(10).fill().map(() => ({
-      position: [(Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2],
-      size: Math.random() * 0.4 + 0.2,
-      starCount: Math.floor(Math.random() * 150 + 50)
-    }));
-  
-    const positions = [];
-    const sizes = [];
-    const brightness = [];
-    const temperatures = [];
-  
-    // Create stars in clusters with size variation
-    clusters.forEach(cluster => {
-      const baseSize = cluster.size * 23;
-      
-      for(let i = 0; i < cluster.starCount; i++) {
-        // Position in cluster
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.pow(Math.random(), 2) * cluster.size;
-        const x = cluster.position[0] + Math.cos(angle) * distance;
-        const y = cluster.position[1] + Math.sin(angle) * distance;
-        
-        // Size variation (power curve for natural distribution)
-        const size = baseSize * Math.pow(Math.random(), 3) * (0.5 + Math.random());
-        const isLarge = Math.random() < 0.1; // 10% chance for larger stars
-        const finalSize = isLarge ? size * 2 : size;
-        
-        // Brightness and temperature
-        const bright = 0.3 + Math.random() * 0.7;
-        const temp = Math.pow(Math.random(), 1.8); // More hot stars in clusters
-        
-        positions.push(x, y, Math.random() < 0.5 ? 0 : -0.1);
-        sizes.push(finalSize);
-        brightness.push(bright);
-        temperatures.push(temp);
-      }
-    });
-  
-    // Add some background stars
-    for(let i = 0; i < 1500; i++) {
-      positions.push(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2,
-        -0.2
-      );
-      sizes.push(1 + Math.random() * 3);
-      brightness.push(0.2 + Math.random() * 0.3);
-      temperatures.push(Math.pow(Math.random(), 2));
-    }
-  
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-    geometry.setAttribute('brightness', new THREE.Float32BufferAttribute(brightness, 1));
-    geometry.setAttribute('temperature', new THREE.Float32BufferAttribute(temperatures, 1));
-  
-    return new THREE.Points(geometry, material);
+
+    const points = new THREE.Points(geometry, material);
+
+    // Add stars and gas clouds
+    cloudMeshes.forEach(cloud => scene.add(cloud));
+
+    return points;
   }
   
   function animate() {
     frameId = requestAnimationFrame(animate);
     updateStarEffects();
+    updateNebulae();
     render();
   }
   
   function updateStarEffects() {
-    const material = scene.children[0].material;
-    material.uniforms.uTime.value = performance.now() / 1000;
+    if (!scene) return; // Add this line to prevent null access
+
+    const t = performance.now() / 1000;
+    scene.children.forEach(obj => {
+      if (obj.material && obj.material.uniforms?.uTime) {
+        obj.material.uniforms.uTime.value = t;
+      }
+    });
   }
+
   
   function initThreeJs() {
     scene = new THREE.Scene();
@@ -264,17 +261,11 @@
     const starField = createStarField();
     scene.add(starField);
   
+
+    galaxyStars = createGalaxy();
+    galaxyStars.visible = showGalaxy;
+    scene.add(galaxyStars);
     mouse = new THREE.Vector2();
-  }
-  
-  function onMouseMove(event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
-    const material = scene.children[0].material;
-    material.uniforms.uMousePosition.value = mouse;
-    
-    render();
   }
   
   function handleResize() {
@@ -287,6 +278,165 @@
     if (!renderer || !scene || !camera) return;
     renderer.render(scene, camera);
   }
+
+  function createGalaxy() {
+    const arms = 5;
+    const armOffsetMax = 0.5;
+    const twist = 1.8;
+    const maxRadius = 0.9;
+    const totalStars = 3000;
+
+    const positions = [];
+    const sizes = [];
+    const brightness = [];
+    const temperatures = [];
+
+    for (let i = 0; i < totalStars; i++) {
+      const arm = i % arms;
+      const armOffset = (Math.random() - 0.5) * armOffsetMax;
+
+      const radius = Math.pow(Math.random(), 1.5) * maxRadius;
+      const angle = (arm / arms) * 2 * Math.PI + radius * twist + armOffset;
+
+      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 0.05;
+      const y = Math.sin(angle) * radius + (Math.random() - 0.5) * 0.05;
+
+      positions.push(x, y, -0.15);
+      sizes.push(Math.random() * 3 + 1);
+      brightness.push(Math.random() * 0.5 + 0.5);
+      temperatures.push(Math.pow(Math.random(), 2));
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    geometry.setAttribute('brightness', new THREE.Float32BufferAttribute(brightness, 1));
+    geometry.setAttribute('temperature', new THREE.Float32BufferAttribute(temperatures, 1));
+
+    const material = scene.children[0].material.clone();
+    return new THREE.Points(geometry, material);
+  }
+
+  function createNebulae() {
+    const clusters = Array(75).fill().map(() => ({
+      position: [(Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2],
+      size: Math.random() * 0.4 + 0.2,
+      starCount: Math.floor(Math.random() * 150 + 50)
+    }));
+
+    const positions = [];
+    const sizes = [];
+    const brightness = [];
+    const temperatures = [];
+    const cloudMeshes = [];
+
+    const cloudTexture = createNebulaCloudTexture();
+
+    clusters.forEach(cluster => {
+      const baseSize = cluster.size * 23;
+
+      for (let i = 0; i < cluster.starCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.pow(Math.random(), 2) * cluster.size;
+        const x = cluster.position[0] + Math.cos(angle) * distance;
+        const y = cluster.position[1] + Math.sin(angle) * distance;
+
+        const size = baseSize * Math.pow(Math.random(), 3) * (0.5 + Math.random());
+        const isLarge = Math.random() < 0.1;
+        const finalSize = isLarge ? size * 2 : size;
+
+        const bright = 0.3 + Math.random() * 0.7;
+        const temp = Math.pow(Math.random(), 1.8);
+
+        positions.push(x, y, Math.random() < 0.5 ? 0 : -0.1);
+        sizes.push(finalSize);
+        brightness.push(bright);
+        temperatures.push(temp);
+      }
+
+      const SHO_COLORS = [
+        new THREE.Color(0x0a0a1f), // deep void (almost black)
+        new THREE.Color(0x111133), // dark blue-violet
+        new THREE.Color(0x1a2b55), // rich shadowed blue
+        new THREE.Color(0x2c4a7f), // dark nebula blue
+        new THREE.Color(0x4a4a88), // dusty purple-blue
+      ];
+
+
+
+
+      // Pick 1 or 2 colors and mix
+      const baseColor = SHO_COLORS[Math.floor(Math.random() * SHO_COLORS.length)];
+      const hsl = baseColor.getHSL({}); // Get base color's HSL values
+
+      // Create complementary mix color
+      const mixColor = new THREE.Color().setHSL(
+        hsl.h, // stick to original hue for clarity
+        hsl.s * (0.8 + Math.random() * 0.2), // slight saturation change
+        hsl.l * (0.4 + Math.random() * 0.3)  // keep it dark and mysterious
+      );
+
+      // More controlled mixing
+      const mixedColor = baseColor.clone().lerp(
+        mixColor, 
+        0.3 + Math.random() * 0.5 // Keep mix between 30-80%
+      );
+
+      // 🌫️ Add gas cloud
+      const cloudMaterial = new THREE.SpriteMaterial({
+        map: cloudTexture,
+        transparent: true,
+        opacity: 0.3 + Math.random() * 0.3, // Reduced base opacity
+        depthWrite: false,
+        blending: THREE.CustomBlending,
+        blendEquation: THREE.AddEquation,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneFactor,
+        color: mixedColor
+      });
+
+      const sprite = new THREE.Sprite(cloudMaterial);
+      sprite.position.set(cluster.position[0], cluster.position[1], -0.25);
+      sprite.scale.set(cluster.size * 3.5, cluster.size * 3.5, 1.0);
+
+      cloudMeshes.push(sprite);
+    });
+
+    return { positions, sizes, brightness, temperatures, cloudMeshes };
+  }
+
+  function updateNebulae() {
+    const t = performance.now() / 1000;
+    cloudMeshes.forEach((cloud, index) => {
+      cloud.position.x += Math.sin(t + index) * 0.0002;
+      cloud.position.y += Math.cos(t * 0.8 + index) * 0.00015;
+      cloud.rotation.z += 0.0001;
+      cloud.material.opacity = 0.3 + Math.sin(t * 0.5 + index) * 0.1;
+    });
+  }
+
+  function createNebulaCloudTexture() {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createRadialGradient(
+      size / 2, size / 2, 0,
+      size / 2, size / 2, size / 2
+    );
+    gradient.addColorStop(0, 'rgba(100,150,255,0.2)');
+    gradient.addColorStop(1, 'rgba(0,0,50,0.0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
+
+
   </script>
   
   <style scoped>
