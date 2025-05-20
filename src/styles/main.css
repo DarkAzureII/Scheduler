@@ -34,3 +34,19 @@
     animation: hologram-scan 4s linear infinite;
   }
 }
+
+.skills-page .vis-network {
+  background: #0f172a !important;
+}
+
+.skills-page .vis-tooltip {
+  @apply bg-slate-800 border border-slate-600 rounded-lg p-3 text-slate-100;
+}
+
+.skill-node {
+  transition: all 0.3s ease;
+}
+
+.xp-progress {
+  transition: width 0.5s ease-in-out;
+}

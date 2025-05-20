@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   optimizeDeps: {
     include: [
-      'chart.js',
+      'chart.js', 'vis-network', 'vis-data'
     ]
   },
 })
