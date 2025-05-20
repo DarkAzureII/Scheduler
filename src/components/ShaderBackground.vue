@@ -52,14 +52,14 @@
     
 
     // Add background stars
-    for (let i = 0; i < 1500; i++) {
+    for (let i = 0; i < 10; i++) {
       positions.push(
         (Math.random() - 0.5) * 2,
         (Math.random() - 0.5) * 2,
         -0.2
       );
-      sizes.push(1 + Math.random() * 3);
-      brightness.push(0.2 + Math.random() * 0.3);
+      sizes.push(0.1 + Math.random() * 3);
+      brightness.push(0.4 + Math.random() * 0.7);
       temperatures.push(Math.pow(Math.random(), 2));
     }
 
@@ -94,7 +94,7 @@
           
           // Add size variation with turbulence
           float sizeVariation = 1.0 + sin(position.x * 100.0) * 0.2;
-          gl_PointSize = size * sizeVariation * (1.0 + brightness * 0.5);
+          gl_PointSize = size * sizeVariation * (1.0 + brightness * 0.1);
 
           vec3 displacedPosition = position + vec3(
               sin(position.y * 10.0 + uTime) * 0.002,
@@ -136,12 +136,10 @@
           float radius = length(uv);
           
           // Create sharp spikes
-          float spike = pow(abs(sin(angle * spikes)), 16.0);
-          float star = step(0.9, spike * (1.0 - radius));
-          
-          // Add subtle glow only for small stars
-          float glow = smoothstep(0.7, 0.3, radius) * 0.3;
-          return mix(star, 1.0, glow * step(vSize, 15.0));
+          float spike = pow(abs(sin(angle * spikes)), 64.0);
+          float starCore = 1.0 - smoothstep(0.0, 0.15, radius);
+          float starSpikes = smoothstep(0.6, 0.4, radius) * spike;
+          return clamp(starCore * 2.0 + starSpikes * 0.8, 0.0, 1.0);
         }
   
         float random(vec2 st) {
@@ -149,11 +147,9 @@
         }
   
         float coneEffect(vec2 uv, vec2 direction, float sharpness, float maxDistance) {
-            // Calculate angle between UV position and direction
-            float angle = dot(normalize(uv), normalize(direction));
-            float cone = smoothstep(0.85, 0.95, pow(abs(angle), sharpness));
-            float distanceFade = 1.0 - smoothstep(0.0, maxDistance, length(uv));
-            return cone * distanceFade;
+          float alignment = dot(normalize(uv), normalize(direction));
+          float cone = pow(smoothstep(0.85, 0.95, alignment), sharpness);
+          return cone * (1.0 - smoothstep(0.0, maxDistance, length(uv)));
         }
   
         void main() {
@@ -177,11 +173,16 @@
             vec2 dirDL = normalize(vec2(-1, -1)) * rotation;
   
             // Create main star shape
-            float spikeCount = mix(6.0, 10.0, smoothstep(10.0, 30.0, vSize));
+
+            float spikeChance = smoothstep(2.0, 8.0, vSize) * (0.3 + sin(vPosition.x * 1000.0) * 0.3);
+            float spikeCount = (random(vec2(vPosition)) < spikeChance) 
+                   ? mix(4.0, 8.0, smoothstep(4.0, 15.0, vSize)) 
+                   : 0.0;
             float starShape = sharpStar(uv, spikeCount);
             
             // Main cones (cardinal directions, full length)
-            float coneIntensity = 0.7 + 0.3 * sin(uTime * 2.0);
+            float coneIntensity = 0.1 + 0.2 * sin(uTime * 2.0);
+
             float cone1 = coneEffect(uv, dirRight, 128.0, 1.0) * coneIntensity;
             float cone2 = coneEffect(uv, dirUp, 128.0, 1.0) * coneIntensity;
             float cone3 = coneEffect(uv, dirLeft, 128.0, 1.0) * coneIntensity;
@@ -204,15 +205,12 @@
             color = mix(color, color * 1.5, hover);
             
             // Alpha calculation
-            float alpha = starShape + 
-                (cone1 + cone2 + cone3 + cone4) * 0.15 +
-                (cone5 + cone6 + cone7 + cone8) * 0.1;
+            float alpha = starShape * 1.5 + 
+                (cone1 + cone2 + cone3 + cone4) * 0.25 +
+                (cone5 + cone6 + cone7 + cone8) * 0.15;
             alpha = clamp(alpha, 0.0, 1.0);
             
-            // Edge sharpening for large stars
-            if(vSize > 15.0) {
-                alpha *= step(0.7, 1.0 - length(uv));
-            }
+            alpha *= 1.0 - smoothstep(0.8, 0.95, length(uv));
             
             gl_FragColor = vec4(color, alpha);
         }

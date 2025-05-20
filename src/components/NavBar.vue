@@ -4,7 +4,7 @@
       <router-link to="/">Dashboard</router-link>
       <router-link to="/goals">Goals</router-link>
       <router-link to="/codex">Codex</router-link>
-      <router-link to="/learning">Learning</router-link>
+      <router-link to="/learning">Skills</router-link>
       <router-link to="/stats">Stats</router-link>
       <router-link to="/schedule">Schedule</router-link>
     </nav>
